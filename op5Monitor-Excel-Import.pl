@@ -21,11 +21,12 @@ use lib dirname (__FILE__) . '/inc';
 use op5Monitor_API;
 
 
-my $o_help;
-my $o_save;
-my $o_debug;
-my $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
-my $o_excel_file;
+our $o_help;
+our $o_save;
+our $o_debug;
+our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
+our $o_excel_file;
+our $o_periodically_save;
 
 check_options();
 our $config = LoadFile($o_config_file);
