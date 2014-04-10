@@ -333,8 +333,7 @@ sub op5api_get_svcdescription_from_host {
 	my $host = shift;
 	my $svcdescription = shift;
 
-	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/service/' . uri_escape($host . ';' . $svcdescription);
-
+	my $url = op5api_get_url_for_service($host, $svcdescription);
 	my $res = get_op5_api_url($url);
 
 	if ($res->{code} != 200) {
@@ -348,7 +347,7 @@ sub op5api_get_svcdescription_from_host {
 
 sub op5api_get_all_servicedescriptions_from_host {
 	my $host = shift;
-	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host/' . uri_escape($host);
+	my $url = op5api_get_url_for_host($host);
 
 	my $res = get_op5_api_url($url);
 
@@ -427,18 +426,6 @@ sub clone_services {
 			print $output , "\n";
 		}
 	}
-}
-
-sub op5_api_check_and_save {
-  my $res = get_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
-  my $need_to_save = $res->{content};
-
-  if ($o_save) {
-    if ($need_to_save && $need_to_save ne "[]") {
-      print "saving the configuration to op5 Monitor API\n";
-      post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
-    }
-  }
 }
 
 
