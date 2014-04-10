@@ -114,4 +114,63 @@ sub patch_op5_api_url {
   return $return;
 }
 
+sub op5api_get_url_for_host {
+  my $host = shift;
+
+  my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
+  my $res = get_op5_api_url($url);
+
+  if ($res->{code} != 200) {
+    print "ERROR: could not get all hosts from op5 API!\n";
+    print $res->{content}, "\n";
+    exit;
+  }
+
+  my $content = decode_json($res->{content});
+  my $return;
+
+  foreach (@$content) {
+    if ($_->{name} eq $host) {
+      $return = $_->{resource};
+    }
+  }
+  return $return;
+}
+
+sub op5api_get_url_for_service {
+  my $host = shift;
+  my $svcdescription = shift;
+
+  my $url = 'https://' . $config->{op5api}->{server} . '/api/config/service';
+  my $res = get_op5_api_url($url);
+
+  if ($res->{code} != 200) {
+    print "ERROR: could not get all services from op5 API!\n";
+    print $res->{content}, "\n";
+    exit;
+  }
+
+  my $content = decode_json($res->{content});
+  my $return;
+
+  foreach (@$content) {
+    if ($_->{name} eq $host.";".$svcdescription) {
+      $return = $_->{resource};
+    }
+  }
+  return $return;
+}
+
+sub op5_api_check_and_save {
+  my $res = get_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+  my $need_to_save = $res->{content};
+
+  if ($o_save) {
+    if ($need_to_save && $need_to_save ne "[]") {
+      print "saving the configuration to op5 Monitor API\n";
+      post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+    }
+  }
+}
+
 1;
