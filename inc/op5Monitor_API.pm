@@ -38,26 +38,24 @@ sub prepare_http_request {
 
 sub get_op5_api_url {
   my $url = shift;
+  my $return;
+
   my $http_browser = prepare_http_request();
   my $response = $http_browser->get($url);
 
   if ($response->is_success) {
-    return $response->content;
+    $return->{content} = $response->content;
   } else {
-    die($response->status_line);
-    exit 2;
+    $return->{content} = $response->status_line;
   }
+  $return->{code} = $response->code;
+  return $return;
 }
 
 sub post_op5_api_url {
   my $url = shift;
   my $json = shift;
-
-  if ($o_pretend) {
-    do_msg("info", "pretending op5 API POST request on URL: " . $url);
-    do_msg("info", $json);
-    return 500;
-  }
+  my $return;
 
   my $http_browser = prepare_http_request();
 
@@ -66,21 +64,19 @@ sub post_op5_api_url {
   $req->content($json);
 
   my $res = $http_browser->request($req);
+
   if ($res->is_success) {
-    return $res->code;
+    $return->{content} = $res->content;
   } else {
-    die($res->status_line);
-    exit 2;
+    $return->{content} = $res->status_line;
   }
+  $return->{code} = $res->code;
+  return $return;
 }
 
 sub delete_op5_api_url {
   my $url = shift;
-
-  if ($o_pretend) {
-    do_msg("info", "pretending op5 API DELETE request on URL: " . $url);
-    return 500;
-  }
+  my $return;
 
   my $http_browser = prepare_http_request();
   my $req = HTTP::Request->new(DELETE => $url);
@@ -88,22 +84,18 @@ sub delete_op5_api_url {
   my $res = $http_browser->request($req);
 
   if ($res->is_success) {
-    return $res->code;
+    $return->{content} = $res->content;
   } else {
-    die($res->status_line);
-    exit 2;
+    $return->{content} = $res->status_line;
   }
+  $return->{code} = $res->code;
+  return $return;
 }
 
 sub patch_op5_api_url {
   my $url = shift;
   my $json = shift;
-
-  if ($o_pretend) {
-    do_msg("info", "pretending op5 API PATCH request on URL: " . $url);
-    do_msg("info", $json);
-    return 500;
-  }
+  my $return;
 
   my $http_browser = prepare_http_request();
 
@@ -112,12 +104,14 @@ sub patch_op5_api_url {
   $req->content($json);
 
   my $res = $http_browser->request($req);
+
   if ($res->is_success) {
-    return $res->code;
+    $return->{content} = $res->content;
   } else {
-    die($res->status_line);
-    exit 2;
+    $return->{content} = $res->status_line;
   }
+  $return->{code} = $res->code;
+  return $return;
 }
 
 1;

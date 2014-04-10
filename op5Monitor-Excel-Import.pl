@@ -230,9 +230,31 @@ sub check_column_content_is_bool {
 	return $match;
 }
 
+sub do_msg {
+  # can be "info", "warning", "error"
+  my $level = shift; 
+  my $msg = shift;
+
+  if ($level eq "info") {
+    if (defined($o_debug)) {
+      print "$msg\n";
+    }
+  } else {
+    print "$msg\n";
+  }
+}
+
 sub op5api_get_all_hostnames {
   my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
-  my $content = decode_json(get_op5_api_url($url));
+  my $res = get_op5_api_url($url);
+
+  if ($res->{code} != 200) {
+  	print "ERROR: could not get all hosts from op5 API!\n";
+  	print $res->{content}, "\n";
+  	exit;
+  }
+
+  my $content = decode_json($res->{content});
 
   my @return;
   foreach (@$content) {
@@ -245,7 +267,9 @@ sub create_host_object {
 	my $hostdata = shift;
 
 	# check if the very basic data for this host is existing
-	if (! $hostdata->{host_name}) { return "not adding a host without a host name"; }
+	if (! $hostdata->{host_name}) { 
+		return "ERROR: not adding a host without a host name"; 
+	}
 	if (! $hostdata->{address}) { $hostdata->{address} = $hostdata->{host_name}; }
 	if (! $hostdata->{alias}) { $hostdata->{alias} = $hostdata->{host_name}; }
 
@@ -267,14 +291,144 @@ sub create_host_object {
 	}
 
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
-	my $result = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
 
-	if ($result == 201) {
-		return;
+	if ($res->{code} == 201) {
+		return "success - " . $hostdata->{host_name};
 	} else {
-		return "host was not created due to an error in the API call. Return code was " . $result;
+		return "host was not created, API gave return code " . $res->{code} . " - " . $res->{content};
 	}
 
+}
+
+sub op5api_clone_one_service {
+	my $from_host = shift;
+	my $to_host = shift;
+	my $svcdescription = shift;
+
+	# fetch service data structure from from_host
+	my $svcdata = op5api_get_svcdescription_from_host($from_host, $svcdescription);
+	$svcdata->{host_name} = $to_host;
+
+	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/service', (encode_json( $svcdata )) );
+
+	if ($res->{code} == 201) {
+		return "    success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
+	} else {
+		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $res->{content};
+	}
+}
+
+sub op5api_host_exists {
+	my $host = shift;
+	my @all_hosts = op5api_get_all_hostnames();
+	my $match;
+	foreach (@all_hosts) {
+		if ($_ eq $host) {
+			$match = 1;
+		}
+	}
+	return $match;
+}
+
+sub op5api_get_svcdescription_from_host {
+	my $host = shift;
+	my $svcdescription = shift;
+
+	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/service/' . uri_escape($host . ';' . $svcdescription);
+
+	my $res = get_op5_api_url($url);
+
+	if ($res->{code} != 200) {
+		print "ERROR: could not get service details from op5 API! $url\n";
+	  	print $res->{content}, "\n";
+	  	exit;
+	}
+
+	return decode_json($res->{content});
+}
+
+sub op5api_get_all_servicedescriptions_from_host {
+	my $host = shift;
+	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host/' . uri_escape($host);
+
+	my $res = get_op5_api_url($url);
+
+	if ($res->{code} != 200) {
+		print "ERROR: could not get host details from op5 API!\n";
+	  	print $res->{content}, "\n";
+	  	exit;
+	}
+
+	my $content = decode_json($res->{content});
+	my @return;
+
+	if ($content->{services}) {
+		foreach my $service (@{$content->{services}}) {
+			push(@return, $service->{service_description});
+		}
+	}
+
+	return @return;
+}
+
+sub op5api_host_has_service {
+	my $host = shift;
+	my $svcdescription = shift;
+
+	#TODO host group services handling could be a good idea
+
+	my @services = op5api_get_all_servicedescriptions_from_host($host);
+	my $match;
+	foreach (@services) {
+		if ($_ eq $svcdescription) {
+			$match = 1;
+		}
+	}
+
+	return $match;
+}
+
+sub clone_services {
+	my $from_hosts_ref = shift;
+	my @from_hosts = @$from_hosts_ref;
+	my $to_host = shift;
+
+	# check if destination host exists
+	if (! op5api_host_exists($to_host)) {
+		return "ERROR: destination host \"" . $to_host . "\" does not exist in Monitor";
+	}
+
+	# now start walking through the source hosts
+	foreach my $from_host (@from_hosts) {
+
+		# check source host for existence
+		if (! op5api_host_exists($from_host)) {
+			print "  source host \"" . $from_host . "\" does not exist, skipping\n";
+			next; 
+		}
+
+		my @from_host_svcdescriptions = op5api_get_all_servicedescriptions_from_host($from_host);
+
+		# check if the source host actually has any services to clone
+		if (scalar(@from_host_svcdescriptions) == 0) {
+			print "  source host \"" . $from_host . "\" does not have any services, skipping\n";
+			next; 
+		}
+
+		foreach my $svcdescription (@from_host_svcdescriptions) {
+
+			# now check if the to_host already has a service with this service_description
+			if (op5api_host_has_service($to_host, $svcdescription)) {
+				print "    destination host \"" . $to_host . "\" already has service: \"" . $svcdescription . "\", skipping\n";
+				next;
+			} 
+
+			# now it's clear we can do this, so let's do it :)
+			my $output = op5api_clone_one_service($from_host, $to_host, $svcdescription);
+			print $output , "\n";
+		}
+	}
 }
 
 
@@ -313,6 +467,8 @@ for my $row ( $row_min+1 .. $row_max ) {
 	# this happens for each of the lines in the XLS except the first one (which is the header line)
 	my $hostdata;
 	my $current_col_index = $col_min;
+	my @clone_services_from_hosts = ();
+
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
 		my $cellcontent;
@@ -341,18 +497,22 @@ for my $row ( $row_min+1 .. $row_max ) {
 
 				$hostdata->{$current_column} = $boolean;
 			}
+
+			# check if service cloning should be done
+			if ($current_column eq "CLONEFROM") {
+				@clone_services_from_hosts = split(/,/, $cellcontent);
+			}
 		}
 
 		$current_col_index++;
 	}
-	my $return = create_host_object($hostdata);
 
-	print "Host #", $row, ": ";
-	if ($return) {
-		print "ERROR - ", $return, "\n";
-	} else {
-		print "success - ", $hostdata->{host_name}, "\n";
-	}
+	# execute host creation
+	my $res = create_host_object($hostdata);
+	print "Host #", $row, ": ", $res, "\n";
+
+	# execute the service cloning
+	clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
 }
 
 
