@@ -29,7 +29,7 @@ my $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 my $o_excel_file;
 
 check_options();
-my $config = LoadFile($o_config_file);
+our $config = LoadFile($o_config_file);
 
 
 ### FUNCTIONS
@@ -136,6 +136,147 @@ sub xls_headers_errors {
 	return @errors;
 }
 
+sub check_column_content_is_scalar {
+	my $column = shift;
+
+	my @scalar_column_headers = (
+		"host_name",
+		"alias",
+		"address",
+		"action_url",
+		"icon_image",
+		"statusmap_image",
+		"template",
+		"check_command",
+		"max_check_attempts",
+		"check_interval",
+		"retry_interval",
+		"check_period",
+		"notification_interval",
+		"notification_period",
+		"display_name",
+		"check_command_args",
+		"freshness_threshold",
+		"event_handler",
+		"event_handler_args",
+		"low_flap_threshold",
+		"high_flap_threshold",
+		"first_notification_delay",
+		"icon_image_alt",
+		"notes",
+		"notes_url"
+	);
+
+	my $match;
+	foreach (@scalar_column_headers) {
+		if ($_ eq $column) {
+			$match = 1;
+		}
+
+		# host custom variables are also scalars
+		if ($column =~ /^_[A-Z_1-9]+$/) {
+			$match = 1;
+		}
+	}
+	return $match;
+}
+
+sub check_column_content_is_array {
+	my $column = shift;
+
+	my @array_column_headers = (
+		"hostgroups",
+		"flap_detection_options",
+		"parents",
+		"contact_groups",
+		"notification_options",
+		"children",
+		"contacts",
+		"stalking_options"
+	);
+
+	my $match;
+	foreach (@array_column_headers) {
+		if ($_ eq $column) {
+			$match = 1;
+		}
+	}
+	return $match;
+}
+
+sub check_column_content_is_bool {
+	my $column = shift;
+
+	my @bool_column_headers = (
+		"active_checks_enabled",
+		"passive_checks_enabled",
+		"event_handler_enabled",
+		"flap_detection_enabled",
+		"process_perf_data",
+		"retain_status_information",
+		"retain_nonstatus_information",
+		"notifications_enabled",
+		"obsess",
+		"obsess_over_host",
+		"check_freshness"
+	);
+
+	my $match;
+	foreach (@bool_column_headers) {
+		if ($_ eq $column) {
+			$match = 1;
+		}
+	}
+	return $match;
+}
+
+sub op5api_get_all_hostnames {
+  my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
+  my $content = decode_json(get_op5_api_url($url));
+
+  my @return;
+  foreach (@$content) {
+    push (@return, $_->{name});
+  }
+  return @return
+}
+
+sub create_host_object {
+	my $hostdata = shift;
+
+	# check if the very basic data for this host is existing
+	if (! $hostdata->{host_name}) { return "not adding a host without a host name"; }
+	if (! $hostdata->{address}) { $hostdata->{address} = $hostdata->{host_name}; }
+	if (! $hostdata->{alias}) { $hostdata->{alias} = $hostdata->{host_name}; }
+
+	# debugging
+	if ($o_debug) {
+		print "DEBUG: ", encode_json( $hostdata ), "\n\n";
+	}
+
+	# check if a host with this name is already existing in running configuration
+	my @all_hosts = op5api_get_all_hostnames();
+	my $match;
+	foreach (@all_hosts) {
+		if ($_ eq $hostdata->{host_name}) {
+			$match = 1;
+		}
+	}
+	if ($match) {
+		return "not adding host \"" . $hostdata->{host_name} . "\" because another host with the same name does already exist";
+	}
+
+	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
+	my $result = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+
+	if ($result == 201) {
+		return;
+	} else {
+		return "host was not created due to an error in the API call. Return code was " . $result;
+	}
+
+}
+
 
 
 ### MAIN WORKFLOW
@@ -146,8 +287,6 @@ my $worksheet = $workbook->worksheet(0);
 my ( $row_min, $row_max ) = $worksheet->row_range();
 my ( $col_min, $col_max ) = $worksheet->col_range();
 
-print "DEBUG row_min: $row_min, row_max: $row_max, col_min: $col_min, col_max: $col_max\n";
-
 # build array of headers of this Spreadsheet
 my $headers;
 for my $col ($col_min .. $col_max) {
@@ -156,10 +295,6 @@ for my $col ($col_min .. $col_max) {
 	chomp $cellcontent;
 	push(@$headers, $cellcontent);
 }
-
-print Dumper($headers);
-print $$headers[0], "\n";
-print $headers->[0], "\n";
 
 # check if these headers are valid ones (existing entries for host objects)
 my @errors = xls_headers_errors($headers);
@@ -180,38 +315,45 @@ for my $row ( $row_min+1 .. $row_max ) {
 	my $current_col_index = $col_min;
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
-		my $cellcontent = $cell->unformatted();
-		chomp $cellcontent;
+		my $cellcontent;
 
-		$hostdata->{$headers->[$current_col_index]} = $cellcontent;
+		if ($cell) {
+			$cellcontent = $cell->unformatted();
+			chomp $cellcontent;
+
+			my $current_column = $headers->[$current_col_index];
+
+			if (check_column_content_is_scalar($current_column)) {
+				$hostdata->{$current_column} = $cellcontent;
+			}
+
+			if (check_column_content_is_array($current_column)) {
+				my @content_array = split(/,/, $cellcontent);
+
+				$hostdata->{$current_column} = \@content_array;
+			}
+
+			if (check_column_content_is_bool($current_column)) {
+				my $boolean = JSON::PP::false;
+				if ($cellcontent eq "1") { $boolean = JSON::PP::true; }
+				if ($cellcontent eq "yes") { $boolean = JSON::PP::true; }
+				if ($cellcontent eq "true") { $boolean = JSON::PP::true; }
+
+				$hostdata->{$current_column} = $boolean;
+			}
+		}
 
 		$current_col_index++;
 	}
-	print encode_json($hostdata);
+	my $return = create_host_object($hostdata);
 
+	print "Host #", $row, ": ";
+	if ($return) {
+		print "ERROR - ", $return, "\n";
+	} else {
+		print "success - ", $hostdata->{host_name}, "\n";
+	}
 }
 
 
-
-
-
-exit;
-for my $worksheet ( $workbook->worksheets() ) {
-
-    my ( $row_min, $row_max ) = $worksheet->row_range();
-    my ( $col_min, $col_max ) = $worksheet->col_range();
-
-    for my $row ( $row_min .. $row_max ) {
-        for my $col ( $col_min .. $col_max ) {
-
-            my $cell = $worksheet->get_cell( $row, $col );
-            next unless $cell;
-
-            print "Row, Col    = ($row, $col)\n";
-            print "Value       = ", $cell->value(),       "\n";
-            print "Unformatted = ", $cell->unformatted(), "\n";
-            print "\n";
-        }
-    }
-}
 
