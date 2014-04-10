@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION 0.1.0
+## VERSION x.x.x 
 
 
 use strict;
@@ -22,8 +22,7 @@ use op5Monitor_API;
 
 
 my $o_help;
-my $o_pretend;
-my $o_nosave;
+my $o_save;
 my $o_debug;
 my $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 my $o_excel_file;
@@ -49,8 +48,7 @@ sub check_options {
   Getopt::Long::Configure("bundling");
   GetOptions(
     'h'   => \$o_help,    'help'    => \$o_help,
-    'p'   => \$o_pretend, 'pretend' => \$o_pretend,
-    'n'   => \$o_nosave,  'nosave'  => \$o_nosave,
+    's'   => \$o_save,  'save'  => \$o_save,
     'd'   => \$o_debug,   'debug' => \$o_debug,
     'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
     'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file
@@ -431,6 +429,17 @@ sub clone_services {
 	}
 }
 
+sub op5_api_check_and_save {
+  my $res = get_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+  my $need_to_save = $res->{content};
+
+  if ($o_save) {
+    if ($need_to_save && $need_to_save ne "[]") {
+      print "saving the configuration to op5 Monitor API\n";
+      post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+    }
+  }
+}
 
 
 ### MAIN WORKFLOW
@@ -515,5 +524,5 @@ for my $row ( $row_min+1 .. $row_max ) {
 	clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
 }
 
-
-
+# check if save is necessary and save the configuration
+op5_api_check_and_save();
