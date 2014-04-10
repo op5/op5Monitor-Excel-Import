@@ -242,6 +242,53 @@ sub do_msg {
   }
 }
 
+sub op5api_get_url_for_host {
+	my $host = shift;
+
+	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
+	my $res = get_op5_api_url($url);
+
+	if ($res->{code} != 200) {
+		print "ERROR: could not get all hosts from op5 API!\n";
+		print $res->{content}, "\n";
+		exit;
+	}
+
+	my $content = decode_json($res->{content});
+	my $return;
+
+	foreach (@$content) {
+		if ($_->{name} eq $host) {
+			$return = $_->{resource};
+		}
+	}
+	return $return;
+}
+
+sub op5api_get_url_for_service {
+	my $host = shift;
+	my $svcdescription = shift;
+
+	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/service';
+	my $res = get_op5_api_url($url);
+
+	if ($res->{code} != 200) {
+		print "ERROR: could not get all services from op5 API!\n";
+		print $res->{content}, "\n";
+		exit;
+	}
+
+	my $content = decode_json($res->{content});
+	my $return;
+
+	foreach (@$content) {
+		if ($_->{name} eq $host.";".$svcdescription) {
+			$return = $_->{resource};
+		}
+	}
+	return $return;
+}
+
 sub op5api_get_all_hostnames {
   my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
   my $res = get_op5_api_url($url);
@@ -333,8 +380,7 @@ sub op5api_get_svcdescription_from_host {
 	my $host = shift;
 	my $svcdescription = shift;
 
-	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/service/' . uri_escape($host . ';' . $svcdescription);
-
+	my $url = op5api_get_url_for_service($host, $svcdescription);
 	my $res = get_op5_api_url($url);
 
 	if ($res->{code} != 200) {
@@ -348,7 +394,7 @@ sub op5api_get_svcdescription_from_host {
 
 sub op5api_get_all_servicedescriptions_from_host {
 	my $host = shift;
-	my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host/' . uri_escape($host);
+	my $url = op5api_get_url_for_host($host);
 
 	my $res = get_op5_api_url($url);
 
