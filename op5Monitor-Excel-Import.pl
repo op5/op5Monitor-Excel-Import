@@ -63,30 +63,36 @@ sub check_options {
 
 ### MAIN WORKFLOW
 my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
-my $excel = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
+my $parser = Spreadsheet::XLSX->new();
+
+#my $excel = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
+my $excel = $parser->parse($o_excel_file);
 
 print Dumper($excel);
 
-# foreach my $sheet (@{$excel -> {Worksheet}}) {
-#  
-#         printf("Sheet: %s\n", $sheet->{Name});
-#         
-#         $sheet -> {MaxRow} ||= $sheet -> {MinRow};
-#         
-#          foreach my $row ($sheet -> {MinRow} .. $sheet -> {MaxRow}) {
-#          
-#                 $sheet -> {MaxCol} ||= $sheet -> {MinCol};
-#                 
-#                 foreach my $col ($sheet -> {MinCol} ..  $sheet -> {MaxCol}) {
-#                 
-#                         my $cell = $sheet -> {Cells} [$row] [$col];
-#  
-#                         if ($cell) {
-#                             printf("( %s , %s ) => %s\n", $row, $col, $cell -> {Val});
-#                         }
-#  
-#                 }
-#  
-#         }
-#  
-#  }
+exit;
+foreach my $sheet (@{$excel -> {Worksheet}}) {
+ 
+    printf("Sheet: %s\n", $sheet->{Name});
+    
+    $sheet -> {MaxRow} ||= $sheet -> {MinRow};
+    
+    foreach my $row ($sheet -> {MinRow} .. $sheet -> {MaxRow}) {
+     
+            $sheet -> {MaxCol} ||= $sheet -> {MinCol};
+            
+            foreach my $col ($sheet -> {MinCol} ..  $sheet -> {MaxCol}) {
+            
+                    my $cell = $sheet -> {Cells} [$row] [$col];
+
+                    if ($cell) {
+                        printf("( %s , %s ) => %s\n", $row, $col, $cell -> {Val});
+                    }
+
+            }
+
+    }
+ 
+}
+
+
