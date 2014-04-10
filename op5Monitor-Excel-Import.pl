@@ -52,7 +52,8 @@ sub check_options {
     's'   => \$o_save,  'save'  => \$o_save,
     'd'   => \$o_debug,   'debug' => \$o_debug,
     'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
-    'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file
+    'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file,
+    'p:i' => \$o_periodically_save
   );
 
   if (defined $o_help) { print_help; }
@@ -267,7 +268,7 @@ sub create_host_object {
 
 	# check if the very basic data for this host is existing
 	if (! $hostdata->{host_name}) { 
-		return "ERROR: not adding a host without a host name"; 
+		return (0, "ERROR: not adding a host without a host name"); 
 	}
 	if (! $hostdata->{address}) { $hostdata->{address} = $hostdata->{host_name}; }
 	if (! $hostdata->{alias}) { $hostdata->{alias} = $hostdata->{host_name}; }
@@ -286,16 +287,16 @@ sub create_host_object {
 		}
 	}
 	if ($match) {
-		return "not adding host \"" . $hostdata->{host_name} . "\" because another host with the same name does already exist";
+		return (0, "not adding host \"" . $hostdata->{host_name} . "\" because another host with the same name does already exist");
 	}
 
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
 	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
 
 	if ($res->{code} == 201) {
-		return "success - " . $hostdata->{host_name};
+		return (1, "success - " . $hostdata->{host_name});
 	} else {
-		return "host was not created, API gave return code " . $res->{code} . " - " . $res->{content};
+		return (0, "host was not created, API gave return code " . $res->{code} . " - " . $res->{content});
 	}
 
 }
@@ -459,12 +460,14 @@ if (scalar(@errors) > 0) {
 }
 
 # walk through the host entries and do some magic
+my $written_hosts_counter = 0;
 for my $row ( $row_min+1 .. $row_max ) {
 
 	# this happens for each of the lines in the XLS except the first one (which is the header line)
 	my $hostdata;
 	my $current_col_index = $col_min;
 	my @clone_services_from_hosts = ();
+	my $this_host_written;
 
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
@@ -505,11 +508,29 @@ for my $row ( $row_min+1 .. $row_max ) {
 	}
 
 	# execute host creation
-	my $res = create_host_object($hostdata);
+	my ($written, $res) = create_host_object($hostdata);
 	print "Host #", $row, ": ", $res, "\n";
+	if ($written) {
+		$this_host_written = 1;
+	}
 
 	# execute the service cloning
-	clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
+	$written = clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
+	if ($written) {
+		$this_host_written = 1;
+	}
+
+	# increase counter of written hosts
+	if ($this_host_written) {
+		$written_hosts_counter++;
+	}
+
+	# periodically save to not slow down too much
+	if ($o_periodically_save) {
+		if ($written_hosts_counter % $o_periodically_save == 0) {
+			op5_api_check_and_save();
+		}
+	}
 }
 
 # check if save is necessary and save the configuration
