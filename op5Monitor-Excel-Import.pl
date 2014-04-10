@@ -230,9 +230,31 @@ sub check_column_content_is_bool {
 	return $match;
 }
 
+sub do_msg {
+  # can be "info", "warning", "error"
+  my $level = shift; 
+  my $msg = shift;
+
+  if ($level eq "info") {
+    if (defined($o_debug)) {
+      print "$msg\n";
+    }
+  } else {
+    print "$msg\n";
+  }
+}
+
 sub op5api_get_all_hostnames {
   my $url = 'https://' . $config->{op5api}->{server} . '/api/config/host';
-  my $content = decode_json(get_op5_api_url($url));
+  my $res = get_op5_api_url($url);
+
+  if ($res->{code} != 200) {
+  	print "ERROR: could not get all hosts from op5 API!\n";
+  	print $res->{content}, "\n";
+  	exit;
+  }
+
+  my $content = decode_json($res->{content});
 
   my @return;
   foreach (@$content) {
@@ -245,7 +267,9 @@ sub create_host_object {
 	my $hostdata = shift;
 
 	# check if the very basic data for this host is existing
-	if (! $hostdata->{host_name}) { return "not adding a host without a host name"; }
+	if (! $hostdata->{host_name}) { 
+		return "ERROR: not adding a host without a host name"; 
+	}
 	if (! $hostdata->{address}) { $hostdata->{address} = $hostdata->{host_name}; }
 	if (! $hostdata->{alias}) { $hostdata->{alias} = $hostdata->{host_name}; }
 
@@ -267,15 +291,16 @@ sub create_host_object {
 	}
 
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
-	my $result = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
 
-	if ($result == 201) {
-		return;
+	if ($res->{code} == 201) {
+		return "success - " . $hostdata->{host_name};
 	} else {
-		return "host was not created due to an error in the API call. Return code was " . $result;
+		return "host was not created, API gave return code " . $res->{code} . " - " . $res->{content};
 	}
 
 }
+
 
 
 
@@ -313,6 +338,8 @@ for my $row ( $row_min+1 .. $row_max ) {
 	# this happens for each of the lines in the XLS except the first one (which is the header line)
 	my $hostdata;
 	my $current_col_index = $col_min;
+	my @clone_services_from_hosts = ();
+
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
 		my $cellcontent;
@@ -341,18 +368,22 @@ for my $row ( $row_min+1 .. $row_max ) {
 
 				$hostdata->{$current_column} = $boolean;
 			}
+
+			# check if service cloning should be done
+			if ($current_column eq "CLONEFROM") {
+				@clone_services_from_hosts = split(/,/, $cellcontent);
+			}
 		}
 
 		$current_col_index++;
 	}
-	my $return = create_host_object($hostdata);
 
-	print "Host #", $row, ": ";
-	if ($return) {
-		print "ERROR - ", $return, "\n";
-	} else {
-		print "success - ", $hostdata->{host_name}, "\n";
-	}
+	# execute host creation
+	my $res = create_host_object($hostdata);
+	print "Host #", $row, ": ", $res, "\n";
+
+	# execute the service cloning
+	#clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
 }
 
 
