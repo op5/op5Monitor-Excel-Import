@@ -43,11 +43,10 @@ sub get_op5_api_url {
   my $http_browser = prepare_http_request();
   my $response = $http_browser->get($url);
 
-  if ($response->is_success) {
-    $return->{content} = $response->content;
-  } else {
-    $return->{content} = $response->status_line;
+  if (! $response->is_success) {
+    $return->{error} = $response->status_line;
   }
+  $return->{content} = $response->content;
   $return->{code} = $response->code;
   return $return;
 }
@@ -65,11 +64,10 @@ sub post_op5_api_url {
 
   my $res = $http_browser->request($req);
 
-  if ($res->is_success) {
-    $return->{content} = $res->content;
-  } else {
-    $return->{content} = $res->status_line;
+  if (! $res->is_success) {
+    $return->{error} = $res->status_line;
   }
+  $return->{content} = $res->content;
   $return->{code} = $res->code;
   return $return;
 }
@@ -83,11 +81,10 @@ sub delete_op5_api_url {
 
   my $res = $http_browser->request($req);
 
-  if ($res->is_success) {
-    $return->{content} = $res->content;
-  } else {
-    $return->{content} = $res->status_line;
+  if (! $res->is_success) {
+    $return->{error} = $res->status_line;
   }
+  $return->{content} = $res->content;
   $return->{code} = $res->code;
   return $return;
 }

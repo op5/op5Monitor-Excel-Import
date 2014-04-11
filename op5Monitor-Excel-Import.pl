@@ -250,7 +250,8 @@ sub op5api_get_all_hostnames {
 
   if ($res->{code} != 200) {
   	print "ERROR: could not get all hosts from op5 API!\n";
-  	print $res->{content}, "\n";
+  	my $msg = decode_json($res->{content});
+  	print $msg->{full_error}, "\n";
   	exit;
   }
 
@@ -296,7 +297,8 @@ sub create_host_object {
 	if ($res->{code} == 201) {
 		return (1, "success - " . $hostdata->{host_name});
 	} else {
-		return (0, "host was not created, API gave return code " . $res->{code} . " - " . $res->{content});
+		my $msg = decode_json($res->{content});
+		return (0, "host not created, API return code " . $res->{code} . " - " . $msg->{full_error});
 	}
 
 }
@@ -315,7 +317,8 @@ sub op5api_clone_one_service {
 	if ($res->{code} == 201) {
 		return "    success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
 	} else {
-		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $res->{content};
+		my $msg = decode_json($res->{content});
+		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
 	}
 }
 
@@ -340,7 +343,8 @@ sub op5api_get_svcdescription_from_host {
 
 	if ($res->{code} != 200) {
 		print "ERROR: could not get service details from op5 API! $url\n";
-	  	print $res->{content}, "\n";
+		my $msg = decode_json($res->{content});
+	  	print $msg->{full_error}, "\n";
 	  	exit;
 	}
 
@@ -355,7 +359,8 @@ sub op5api_get_all_servicedescriptions_from_host {
 
 	if ($res->{code} != 200) {
 		print "ERROR: could not get host details from op5 API!\n";
-	  	print $res->{content}, "\n";
+		my $msg = decode_json($res->{content});
+	  	print $msg->{full_error}, "\n";
 	  	exit;
 	}
 
