@@ -27,6 +27,7 @@ our $o_debug;
 our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
 our $o_periodically_save;
+our $o_saveonly;
 
 check_options();
 our $config = LoadFile($o_config_file);
@@ -50,13 +51,18 @@ sub check_options {
   GetOptions(
     'h'   => \$o_help,    'help'    => \$o_help,
     's'   => \$o_save,  'save'  => \$o_save,
+    'S'   => \$o_saveonly, 'saveonly' => \$o_saveonly,
     'd'   => \$o_debug,   'debug' => \$o_debug,
     'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
     'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file,
     'p:i' => \$o_periodically_save
   );
 
-  if (defined $o_help) { print_help; }
+  if ($o_help) { print_help; }
+
+  if ($o_saveonly) {
+  	op5_api_check_and_save();
+  }
 }
 
 sub xls_headers_errors {
