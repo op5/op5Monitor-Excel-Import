@@ -120,6 +120,11 @@ sub xls_headers_errors {
 			next;
 		}
 
+		# exception: autodetect_win_disks
+		if (/^AUTODETECT_WIN_DISKS$/) {
+			next;
+		}
+
 		my $match;
 		my $header = $_;
 		foreach (@allowed_headers) {
@@ -351,12 +356,11 @@ sub op5api_get_svcdescription_from_host {
 	return decode_json($res->{content});
 }
 
-sub op5api_get_all_servicedescriptions_from_host {
+sub op5api_get_complete_host {
 	my $host = shift;
 	my $url = op5api_get_url_for_host($host);
 
 	my $res = get_op5_api_url($url);
-
 	if ($res->{code} != 200) {
 		print "ERROR: could not get host details from op5 API!\n";
 		my $msg = decode_json($res->{content});
@@ -365,6 +369,13 @@ sub op5api_get_all_servicedescriptions_from_host {
 	}
 
 	my $content = decode_json($res->{content});
+	return $content;
+}
+
+sub op5api_get_all_servicedescriptions_from_host {
+	my $host = shift;
+
+	my $content = op5api_get_complete_host($host);
 	my @return;
 
 	if ($content->{services}) {
@@ -435,6 +446,127 @@ sub clone_services {
 	}
 }
 
+sub op5api_add_windows_disk_drive_service {
+	my $host = shift;
+	my $driveletter = shift;
+
+	my $service_description = $config->{excel_import}->{windows_disk_checks}->{service_description};
+	$service_description =~ s/%s/$driveletter/g;
+
+	my $check_command_args = $config->{excel_import}->{windows_disk_checks}->{check_command_args};
+	$check_command_args =~ s/%s/$driveletter/g;
+
+	my $service = {
+		'service_description' => $service_description,
+		'template' => $config->{excel_import}->{windows_disk_checks}->{template},
+		'host_name' => $host,
+		'check_command' => $config->{excel_import}->{windows_disk_checks}->{check_command},
+		'check_command_args' => $check_command_args
+	};
+
+	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/service', (encode_json( $service )) );
+
+	if ($res->{code} == 201) {
+		return "    success - \"" . $service_description . "\" created on host \"" . $host;
+	} else {
+		my $msg = decode_json($res->{content});
+		return "    could not add \"" . $service_description . "\" on \"" . $host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+	}
+}
+
+sub execute_nrpe_command {
+	my $hostaddress = shift;
+	my $nrpe_command = shift;
+	my $arguments = shift;
+
+	my $nrpe_bin = $config->{excel_import}->{check_nrpe_path};
+	my $result;
+
+	if (! (-e $nrpe_bin and -x $nrpe_bin)) {
+		$result->{error} = $!;
+		return $result;
+	}
+
+
+	my $ssl_opt = "";
+	if ($config->{excel_import}->{check_nrpe_use_ssl} eq "true") {
+		$ssl_opt = " -s";
+	}
+
+	my $full_command = $nrpe_bin . $ssl_opt . " -H " . $hostaddress . " -c " . $nrpe_command;
+
+	if ($arguments) {
+		$full_command .= " -a " . $arguments;
+	}
+
+	if ($o_debug) {
+		print "DEBUG: about to execute \"" . $full_command . "\"\n";
+	}
+
+	$full_command .= " 2>&1";
+
+	# execute the command
+	my $output = `$full_command`;
+	my $exitcode = $?;
+	chomp $output;
+
+	if ($exitcode > 3) {
+		# something went wrong
+		# convert multi-line error messages into one line
+		$output =~ s/\R/ - /g;
+		$result->{error} = $output;
+	}
+
+	$result->{exitcode} = $exitcode;
+	$result->{output} = $output;
+	return $result;
+}
+
+sub get_existing_windows_disks_via_nrpe {
+	my $hostaddress = shift;
+	my $return;
+
+	my $nrpe_arguments = "CheckAll ShowAll=short FilterType=FIXED ignore-perf-data";
+	my $nrpe_return = execute_nrpe_command($hostaddress, "CheckDriveSize", $nrpe_arguments);
+
+	if ($nrpe_return->{error}) {
+		my $return->{error} = $nrpe_return->{error};
+		return $return;
+	}
+
+	my $nrpe_output = $nrpe_return->{output};
+	$nrpe_output =~ s/^[A-Z]+: //;
+	$nrpe_output =~ s/\\:.*, /#/;
+	$nrpe_output =~ s/\\:.*$//;
+
+	my @return_drives = split(/#/, $nrpe_output);
+
+	$return->{drives} = \@return_drives;
+	return $return;
+} 
+
+sub autodetect_and_add_windows_disks {
+	my $host = shift;
+
+	# first, get the host address from the API
+	my $hostcontent = op5api_get_complete_host($host);
+	my $hostaddress = $hostcontent->{address};
+
+	my $disks = get_existing_windows_disks_via_nrpe($hostaddress);
+
+	if ($disks->{error}) {
+		print "    ERROR: disks could not be scanned (address: " . $hostaddress . "): " . $disks->{error} . "\n";
+		return 0;
+	}
+
+	my @diskdrives = @{$disks->{drives}};
+	foreach my $driveletter (@diskdrives) {
+		my $msg = op5api_add_windows_disk_drive_service($host, $driveletter);
+		print $msg, "\n";
+	}
+	return 1;
+}
+
 
 ### MAIN WORKFLOW
 my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
@@ -473,6 +605,7 @@ for my $row ( $row_min+1 .. $row_max ) {
 	my $current_col_index = $col_min;
 	my @clone_services_from_hosts = ();
 	my $this_host_written;
+	my $autodetect_windows_disks;
 
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
@@ -503,6 +636,13 @@ for my $row ( $row_min+1 .. $row_max ) {
 				$hostdata->{$current_column} = $boolean;
 			}
 
+			# check if auto-detection of windows services should be done
+			if ($current_column eq "AUTODETECT_WIN_DISKS") {
+				if ($cellcontent eq "1" or $cellcontent eq "yes" or $cellcontent eq "true") {
+					$autodetect_windows_disks = 1;
+				}
+			}
+
 			# check if service cloning should be done
 			if ($current_column eq "CLONEFROM") {
 				@clone_services_from_hosts = split(/,/, $cellcontent);
@@ -517,6 +657,14 @@ for my $row ( $row_min+1 .. $row_max ) {
 	print "Host #", $row, ": ", $res, "\n";
 	if ($written) {
 		$this_host_written = 1;
+	}
+
+	# execute windows host auto-detection of disk drives via NRPE
+	if ($autodetect_windows_disks) {
+		$written = autodetect_and_add_windows_disks($hostdata->{host_name});
+		if ($written) {
+			$this_host_written = 1;
+		}
 	}
 
 	# execute the service cloning
