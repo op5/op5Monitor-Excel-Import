@@ -284,18 +284,6 @@ sub create_host_object {
 		print "DEBUG: ", encode_json( $hostdata ), "\n\n";
 	}
 
-	# check if a host with this name is already existing in running configuration
-	my @all_hosts = op5api_get_all_hostnames();
-	my $match;
-	foreach (@all_hosts) {
-		if ($_ eq $hostdata->{host_name}) {
-			$match = 1;
-		}
-	}
-	if ($match) {
-		return (0, "not adding host \"" . $hostdata->{host_name} . "\" because another host with the same name does already exist");
-	}
-
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
 	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
 
