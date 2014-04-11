@@ -62,6 +62,7 @@ sub check_options {
 
   if ($o_saveonly) {
   	op5_api_check_and_save();
+  	exit;
   }
 }
 
