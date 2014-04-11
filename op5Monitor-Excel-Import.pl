@@ -294,7 +294,7 @@ sub create_host_object {
 		return (1, "success - " . $hostdata->{host_name});
 	} else {
 		my $msg = decode_json($res->{content});
-		return (0, "host not created, API return code " . $res->{code} . " - " . $msg->{full_error});
+		return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
 	}
 
 }
