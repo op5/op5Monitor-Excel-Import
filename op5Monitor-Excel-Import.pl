@@ -581,6 +581,8 @@ for my $row ( $row_min+1 .. $row_max ) {
 		$this_host_written = 1;
 	}
 
+	# execute windows host auto-detection of disk drives via NRPE
+
 	# execute the service cloning
 	$written = clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
 	if ($written) {
