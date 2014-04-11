@@ -159,13 +159,25 @@ sub op5api_get_url_for_service {
 }
 
 sub op5_api_check_and_save {
-  my $res = get_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+  my $url = 'https://' . $config->{op5api}->{server} . '/api/config/change';
+
+  my $res = get_op5_api_url($url);
+  if ($res->{error}) {
+    print "Error getting changes to save\n";
+    print $res->{content}, "\n";
+  }
   my $need_to_save = $res->{content};
 
   if ($o_save) {
     if ($need_to_save && $need_to_save ne "[]") {
       print "saving the configuration to op5 Monitor API\n";
-      post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+      my $return = post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change', '{}');
+
+      if ($return->{error}) {
+        print "Save went wrong: " . $return->{code} . " - " . $return->{error} . "\n";
+      } else {
+        print "Saved successfully\n";
+      }
     }
   }
 }
