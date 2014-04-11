@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION 0.1.0 
+## VERSION 0.2.0 
 
 
 use strict;
@@ -26,7 +26,8 @@ our $o_save;
 our $o_debug;
 our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
-our $o_periodically_save;
+our $o_periodically_save = 20;
+our $o_saveonly;
 
 check_options();
 our $config = LoadFile($o_config_file);
@@ -50,13 +51,15 @@ sub check_options {
   GetOptions(
     'h'   => \$o_help,    'help'    => \$o_help,
     's'   => \$o_save,  'save'  => \$o_save,
+    'S'   => \$o_saveonly, 'saveonly' => \$o_saveonly,
     'd'   => \$o_debug,   'debug' => \$o_debug,
     'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
     'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file,
     'p:i' => \$o_periodically_save
   );
 
-  if (defined $o_help) { print_help; }
+  if ($o_help) { print_help; }
+
 }
 
 sub xls_headers_errors {
@@ -117,6 +120,11 @@ sub xls_headers_errors {
 
 		# exception: clonefrom
 		if (/^CLONEFROM$/) {
+			next;
+		}
+
+		# exception: autodetect_win_disks
+		if (/^AUTODETECT_WIN_DISKS$/) {
 			next;
 		}
 
@@ -250,7 +258,8 @@ sub op5api_get_all_hostnames {
 
   if ($res->{code} != 200) {
   	print "ERROR: could not get all hosts from op5 API!\n";
-  	print $res->{content}, "\n";
+  	my $msg = decode_json($res->{content});
+  	print $msg->{full_error}, "\n";
   	exit;
   }
 
@@ -278,25 +287,14 @@ sub create_host_object {
 		print "DEBUG: ", encode_json( $hostdata ), "\n\n";
 	}
 
-	# check if a host with this name is already existing in running configuration
-	my @all_hosts = op5api_get_all_hostnames();
-	my $match;
-	foreach (@all_hosts) {
-		if ($_ eq $hostdata->{host_name}) {
-			$match = 1;
-		}
-	}
-	if ($match) {
-		return (0, "not adding host \"" . $hostdata->{host_name} . "\" because another host with the same name does already exist");
-	}
-
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
 	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
 
 	if ($res->{code} == 201) {
 		return (1, "success - " . $hostdata->{host_name});
 	} else {
-		return (0, "host was not created, API gave return code " . $res->{code} . " - " . $res->{content});
+		my $msg = decode_json($res->{content});
+		return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
 	}
 
 }
@@ -315,7 +313,8 @@ sub op5api_clone_one_service {
 	if ($res->{code} == 201) {
 		return "    success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
 	} else {
-		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $res->{content};
+		my $msg = decode_json($res->{content});
+		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
 	}
 }
 
@@ -340,26 +339,34 @@ sub op5api_get_svcdescription_from_host {
 
 	if ($res->{code} != 200) {
 		print "ERROR: could not get service details from op5 API! $url\n";
-	  	print $res->{content}, "\n";
+		my $msg = decode_json($res->{content});
+	  	print $msg->{full_error}, "\n";
 	  	exit;
 	}
 
 	return decode_json($res->{content});
 }
 
-sub op5api_get_all_servicedescriptions_from_host {
+sub op5api_get_complete_host {
 	my $host = shift;
 	my $url = op5api_get_url_for_host($host);
 
 	my $res = get_op5_api_url($url);
-
 	if ($res->{code} != 200) {
 		print "ERROR: could not get host details from op5 API!\n";
-	  	print $res->{content}, "\n";
+		my $msg = decode_json($res->{content});
+	  	print $msg->{full_error}, "\n";
 	  	exit;
 	}
 
 	my $content = decode_json($res->{content});
+	return $content;
+}
+
+sub op5api_get_all_servicedescriptions_from_host {
+	my $host = shift;
+
+	my $content = op5api_get_complete_host($host);
 	my @return;
 
 	if ($content->{services}) {
@@ -417,21 +424,146 @@ sub clone_services {
 
 		foreach my $svcdescription (@from_host_svcdescriptions) {
 
-			# now check if the to_host already has a service with this service_description
-			if (op5api_host_has_service($to_host, $svcdescription)) {
-				print "    destination host \"" . $to_host . "\" already has service: \"" . $svcdescription . "\", skipping\n";
-				next;
-			} 
-
-			# now it's clear we can do this, so let's do it :)
+			# create the service on the to_host
 			my $output = op5api_clone_one_service($from_host, $to_host, $svcdescription);
 			print $output , "\n";
+			
 		}
 	}
 }
 
+sub op5api_add_windows_disk_drive_service {
+	my $host = shift;
+	my $driveletter = shift;
+
+	my $service_description = $config->{excel_import}->{windows_disk_checks}->{service_description};
+	$service_description =~ s/%s/$driveletter/g;
+
+	my $check_command_args = $config->{excel_import}->{windows_disk_checks}->{check_command_args};
+	$check_command_args =~ s/%s/$driveletter/g;
+
+	my $service = {
+		'service_description' => $service_description,
+		'template' => $config->{excel_import}->{windows_disk_checks}->{template},
+		'host_name' => $host,
+		'check_command' => $config->{excel_import}->{windows_disk_checks}->{check_command},
+		'check_command_args' => $check_command_args
+	};
+
+	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/service', (encode_json( $service )) );
+
+	if ($res->{code} == 201) {
+		return "    success - \"" . $service_description . "\" created on host \"" . $host;
+	} else {
+		my $msg = decode_json($res->{content});
+		return "    could not add \"" . $service_description . "\" on \"" . $host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+	}
+}
+
+sub execute_nrpe_command {
+	my $hostaddress = shift;
+	my $nrpe_command = shift;
+	my $arguments = shift;
+
+	my $nrpe_bin = $config->{excel_import}->{check_nrpe_path};
+	my $result;
+
+	if (! (-e $nrpe_bin and -x $nrpe_bin)) {
+		$result->{error} = $!;
+		return $result;
+	}
+
+
+	my $ssl_opt = "";
+	if ($config->{excel_import}->{check_nrpe_use_ssl} eq "true") {
+		$ssl_opt = " -s";
+	}
+
+	my $full_command = $nrpe_bin . $ssl_opt . " -H " . $hostaddress . " -c " . $nrpe_command;
+
+	if ($arguments) {
+		$full_command .= " -a " . $arguments;
+	}
+
+	if ($o_debug) {
+		print "DEBUG: about to execute \"" . $full_command . "\"\n";
+	}
+
+	$full_command .= " 2>&1";
+
+	# execute the command
+	my $output = `$full_command`;
+	my $exitcode = $?;
+	chomp $output;
+
+	if ($exitcode > 3) {
+		# something went wrong
+		# convert multi-line error messages into one line
+		$output =~ s/\R/ - /g;
+		$result->{error} = $output;
+	}
+
+	$result->{exitcode} = $exitcode;
+	$result->{output} = $output;
+	return $result;
+}
+
+sub get_existing_windows_disks_via_nrpe {
+	my $hostaddress = shift;
+	my $return;
+
+	my $nrpe_arguments = "CheckAll ShowAll=short FilterType=FIXED ignore-perf-data";
+	my $nrpe_return = execute_nrpe_command($hostaddress, "CheckDriveSize", $nrpe_arguments);
+
+	if ($nrpe_return->{error}) {
+		my $return->{error} = $nrpe_return->{error};
+		return $return;
+	}
+
+	my $nrpe_output = $nrpe_return->{output};
+	$nrpe_output =~ s/^[A-Z]+: //;
+	$nrpe_output =~ s/\\:.*, /#/;
+	$nrpe_output =~ s/\\:.*$//;
+
+	my @return_drives = split(/#/, $nrpe_output);
+
+	$return->{drives} = \@return_drives;
+	return $return;
+} 
+
+sub autodetect_and_add_windows_disks {
+	my $host = shift;
+
+	# first, get the host address from the API
+	my $hostcontent = op5api_get_complete_host($host);
+	my $hostaddress = $hostcontent->{address};
+
+	my $disks = get_existing_windows_disks_via_nrpe($hostaddress);
+
+	if ($disks->{error}) {
+		print "    ERROR: disks could not be scanned (address: " . $hostaddress . "): " . $disks->{error} . "\n";
+		return 0;
+	}
+
+	my @diskdrives = @{$disks->{drives}};
+	foreach my $driveletter (@diskdrives) {
+		my $msg = op5api_add_windows_disk_drive_service($host, $driveletter);
+		print $msg, "\n";
+	}
+	return 1;
+}
+
 
 ### MAIN WORKFLOW
+
+# saveonly
+if ($o_saveonly) {
+	$o_save = 1;
+	op5_api_check_and_save();
+	exit;
+}
+
+# all the rest
 my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
 my $workbook = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
 
@@ -468,6 +600,7 @@ for my $row ( $row_min+1 .. $row_max ) {
 	my $current_col_index = $col_min;
 	my @clone_services_from_hosts = ();
 	my $this_host_written;
+	my $autodetect_windows_disks;
 
 	for my $col ( $col_min .. $col_max ) {
 		my $cell = $worksheet->get_cell( $row, $col );
@@ -498,6 +631,13 @@ for my $row ( $row_min+1 .. $row_max ) {
 				$hostdata->{$current_column} = $boolean;
 			}
 
+			# check if auto-detection of windows services should be done
+			if ($current_column eq "AUTODETECT_WIN_DISKS") {
+				if ($cellcontent eq "1" or $cellcontent eq "yes" or $cellcontent eq "true") {
+					$autodetect_windows_disks = 1;
+				}
+			}
+
 			# check if service cloning should be done
 			if ($current_column eq "CLONEFROM") {
 				@clone_services_from_hosts = split(/,/, $cellcontent);
@@ -514,6 +654,14 @@ for my $row ( $row_min+1 .. $row_max ) {
 		$this_host_written = 1;
 	}
 
+	# execute windows host auto-detection of disk drives via NRPE
+	if ($autodetect_windows_disks) {
+		$written = autodetect_and_add_windows_disks($hostdata->{host_name});
+		if ($written) {
+			$this_host_written = 1;
+		}
+	}
+
 	# execute the service cloning
 	$written = clone_services(\@clone_services_from_hosts, $hostdata->{host_name});
 	if ($written) {
@@ -526,10 +674,8 @@ for my $row ( $row_min+1 .. $row_max ) {
 	}
 
 	# periodically save to not slow down too much
-	if ($o_periodically_save) {
-		if ($written_hosts_counter % $o_periodically_save == 0) {
-			op5_api_check_and_save();
-		}
+	if ($written_hosts_counter % $o_periodically_save == 0) {
+		op5_api_check_and_save();
 	}
 }
 

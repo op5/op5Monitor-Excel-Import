@@ -43,11 +43,10 @@ sub get_op5_api_url {
   my $http_browser = prepare_http_request();
   my $response = $http_browser->get($url);
 
-  if ($response->is_success) {
-    $return->{content} = $response->content;
-  } else {
-    $return->{content} = $response->status_line;
+  if (! $response->is_success) {
+    $return->{error} = $response->status_line;
   }
+  $return->{content} = $response->content;
   $return->{code} = $response->code;
   return $return;
 }
@@ -65,11 +64,10 @@ sub post_op5_api_url {
 
   my $res = $http_browser->request($req);
 
-  if ($res->is_success) {
-    $return->{content} = $res->content;
-  } else {
-    $return->{content} = $res->status_line;
+  if (! $res->is_success) {
+    $return->{error} = $res->status_line;
   }
+  $return->{content} = $res->content;
   $return->{code} = $res->code;
   return $return;
 }
@@ -83,11 +81,10 @@ sub delete_op5_api_url {
 
   my $res = $http_browser->request($req);
 
-  if ($res->is_success) {
-    $return->{content} = $res->content;
-  } else {
-    $return->{content} = $res->status_line;
+  if (! $res->is_success) {
+    $return->{error} = $res->status_line;
   }
+  $return->{content} = $res->content;
   $return->{code} = $res->code;
   return $return;
 }
@@ -162,13 +159,25 @@ sub op5api_get_url_for_service {
 }
 
 sub op5_api_check_and_save {
-  my $res = get_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+  my $url = 'https://' . $config->{op5api}->{server} . '/api/config/change';
+
+  my $res = get_op5_api_url($url);
+  if ($res->{error}) {
+    print "Error getting changes to save\n";
+    print $res->{content}, "\n";
+  }
   my $need_to_save = $res->{content};
 
   if ($o_save) {
     if ($need_to_save && $need_to_save ne "[]") {
       print "saving the configuration to op5 Monitor API\n";
-      post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change');
+      my $return = post_op5_api_url('https://' . $config->{op5api}->{server} . '/api/config/change', '{}');
+
+      if ($return->{error}) {
+        print "Save went wrong: " . $return->{code} . " - " . $return->{error} . "\n";
+      } else {
+        print "Saved successfully\n";
+      }
     }
   }
 }
