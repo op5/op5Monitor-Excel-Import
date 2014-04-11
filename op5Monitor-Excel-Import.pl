@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION x.x.x 
+## VERSION 0.1.0 
 
 
 use strict;
