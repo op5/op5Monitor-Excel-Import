@@ -8,3 +8,7 @@ op5api:
 excel_import:
   check_nrpe_path: /opt/plugins/check_nrpe
   check_nrpe_use_ssl: false
+  windows_disk_checks:
+    check_command: check_nrpe_win_drivesize
+    service_description: Disk %s utilization
+    check_command_args: Drive=%s MaxWarn=80% MaxCrit=90%
