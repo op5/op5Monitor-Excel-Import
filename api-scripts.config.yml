@@ -1,0 +1,7 @@
+---
+op5api:
+  server: localhost
+  user: monitor
+  password: monitor
+  authentication_realm: op5 Monitor API Access
+  ssl_verify_hostname: false

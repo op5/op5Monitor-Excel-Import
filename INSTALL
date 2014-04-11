@@ -1,0 +1,16 @@
+DEPENDENCIES:
+
+for a base CentOS / Red Hat 6 machine without EPEL enabled, get the following packages from EPEL:
+
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Crypt-RC4-2.02-1.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Digest-Perl-MD5-1.8-2.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Jcode-2.07-1.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-OLE-Storage_Lite-0.19-2.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-ParseExcel-0.5900-1.el6.x86_64.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-WriteExcel-2.37-1.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-XLSX-0.13-3.el6.noarch.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Unicode-Map-0.112-12.el6.x86_64.rpm
+
+additionally, install the following one using yum:
+
+yum install perl-Text-Iconv
