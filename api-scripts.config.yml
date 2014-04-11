@@ -5,3 +5,6 @@ op5api:
   password: monitor
   authentication_realm: op5 Monitor API Access
   ssl_verify_hostname: false
+excel_import:
+  check_nrpe_path: /opt/plugins/check_nrpe
+  check_nrpe_use_ssl: false

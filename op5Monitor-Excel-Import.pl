@@ -435,6 +435,68 @@ sub clone_services {
 	}
 }
 
+sub execute_nrpe_command {
+	my $hostaddress = shift;
+	my $nrpe_command = shift;
+	my $arguments = shift;
+
+	my $nrpe_bin = $config->{excel_import}->{check_nrpe_path};
+	my $result;
+
+	if (! (-e $nrpe_bin and -x $nrpe_bin)) {
+		$result->{error} = $!;
+		return $result;
+	}
+
+
+	my $ssl_opt = "";
+	if ($config->{excel_import}->{check_nrpe_use_ssl} eq "true") {
+		$ssl_opt = " -s";
+	}
+
+	my $full_command = $nrpe_bin . $ssl_opt . " -H " . $hostaddress . " -c " . $nrpe_command;
+
+	if ($arguments) {
+		$full_command .= " -a " . $arguments;
+	}
+
+	if ($o_debug) {
+		print "DEBUG: about to execute \"" . $full_command . "\"\n";
+	}
+
+	# execute the command
+	my $output = `$full_command`;
+	my $exitcode = $?;
+	chomp $output;
+
+	$result->{exitcode} = $exitcode;
+	$result->{output} = $output;
+	return $result;
+}
+
+sub get_existing_windows_disks_via_nrpe {
+	my $hostaddress = shift;
+	my $return;
+
+	my $nrpe_arguments = "CheckAll ShowAll=short FilterType=FIXED ignore-perf-data";
+	my $nrpe_return = execute_nrpe_command($hostaddress, "CheckDriveSize", $nrpe_arguments);
+
+	if ($nrpe_return->{error}) {
+		my $return->{error} = $nrpe_return->{error};
+		return $return;
+	}
+
+	my $nrpe_output = $nrpe_return->{output};
+	$nrpe_output =~ s/^[A-Z]+: //;
+	$nrpe_output =~ s/\\:.*, /#/;
+	$nrpe_output =~ s/\\:.*$//;
+
+	my @return_drives = split(/#/, $nrpe_output);
+
+	$return->{drives} = \@return_drives;
+	return $return;
+} 
+
 
 ### MAIN WORKFLOW
 my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
