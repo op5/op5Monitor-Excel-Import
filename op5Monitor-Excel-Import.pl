@@ -421,15 +421,10 @@ sub clone_services {
 
 		foreach my $svcdescription (@from_host_svcdescriptions) {
 
-			# now check if the to_host already has a service with this service_description
-			if (op5api_host_has_service($to_host, $svcdescription)) {
-				print "    destination host \"" . $to_host . "\" already has service: \"" . $svcdescription . "\", skipping\n";
-				next;
-			} 
-
-			# now it's clear we can do this, so let's do it :)
+			# create the service on the to_host
 			my $output = op5api_clone_one_service($from_host, $to_host, $svcdescription);
 			print $output , "\n";
+			
 		}
 	}
 }
