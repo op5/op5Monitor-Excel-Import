@@ -26,7 +26,7 @@ our $o_save;
 our $o_debug;
 our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
-our $o_periodically_save;
+our $o_periodically_save = 20;
 our $o_saveonly;
 
 check_options();
@@ -60,10 +60,6 @@ sub check_options {
 
   if ($o_help) { print_help; }
 
-  if ($o_saveonly) {
-  	op5_api_check_and_save();
-  	exit;
-  }
 }
 
 sub xls_headers_errors {
@@ -559,6 +555,15 @@ sub autodetect_and_add_windows_disks {
 
 
 ### MAIN WORKFLOW
+
+# saveonly
+if ($o_saveonly) {
+	$o_save = 1;
+	op5_api_check_and_save();
+	exit;
+}
+
+# all the rest
 my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
 my $workbook = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
 
@@ -669,10 +674,8 @@ for my $row ( $row_min+1 .. $row_max ) {
 	}
 
 	# periodically save to not slow down too much
-	if ($o_periodically_save) {
-		if ($written_hosts_counter % $o_periodically_save == 0) {
-			op5_api_check_and_save();
-		}
+	if ($written_hosts_counter % $o_periodically_save == 0) {
+		op5_api_check_and_save();
 	}
 }
 
