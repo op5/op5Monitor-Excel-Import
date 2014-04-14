@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION 0.2.0 
+## VERSION 0.3.0 
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -11,6 +11,7 @@
 ##### Changelog
 # 2014-04-11 v0.1.0 Christian Anton initial version
 # 2014-04-14 v0.2.0 Christian Anton added Windows disks monitoring support
+# 2014-04-14 v0.3.0 Christian Anton added README and help functions
 
 
 use strict;
