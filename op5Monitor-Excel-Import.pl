@@ -2,6 +2,16 @@
 
 ## VERSION 0.2.0 
 
+# This program is a bulk-import script that reads an Excel file as an input
+# and each host from this Excel list into op5 Monitor through the HTTP APIs
+# of the op5 Monitor product.
+# You can find more information on this program in the README file delivered
+# with this distribution
+
+##### Changelog
+# 2014-04-11 v0.1.0 Christian Anton initial version
+# 2014-04-14 v0.2.0 Christian Anton added Windows disks monitoring support
+
 
 use strict;
 use warnings;
@@ -49,12 +59,12 @@ EOT
 sub check_options {
   Getopt::Long::Configure("bundling");
   GetOptions(
-    'h'   => \$o_help,    'help'    => \$o_help,
-    's'   => \$o_save,  'save'  => \$o_save,
-    'S'   => \$o_saveonly, 'saveonly' => \$o_saveonly,
-    'd'   => \$o_debug,   'debug' => \$o_debug,
-    'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
-    'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file,
+    'h'   => \$o_help,					'help'			=> \$o_help,
+    's'   => \$o_save,					'save'  		=> \$o_save,
+    'S'   => \$o_saveonly,				'saveonly' 		=> \$o_saveonly,
+    'd'   => \$o_debug,					'debug' 		=> \$o_debug,
+    'c:s' => \$o_config_file,			'config:s' 		=> \$o_config_file,
+    'x:s' => \$o_excel_file,			'excelfile:s' 	=> \$o_excel_file,
     'p:i' => \$o_periodically_save
   );
 
