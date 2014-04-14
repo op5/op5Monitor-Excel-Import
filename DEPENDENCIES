@@ -1,24 +1,48 @@
 Perl DEPENDENCIES:
 ==================
 
-CentOS / RHEL
--------------
+the following Perl modules are needed by this software:
 
-for a base CentOS / Red Hat 6 machine without EPEL enabled, get the following packages from EPEL:
+- LWP
+- JSON::PP
+- URI::Escape
+- Getopt::Long
+- YAML
+- List::MoreUtils
+- Spreadsheet::XLSX
+- Text::Iconv
+- File::Basename
+
+depending on the machine platform where you want to use the script, the dependencies may be 
+installed using one of the following methods:
+
+
+
+CentOS / RHEL / op5 APS (appliance software platform)
+-----------------------------------------------------
+
+if you want to run this software on a CentOS / RHEL or APS machine where op5 Monitor is 
+installed on, you can easily add most of the necessary Perl modules by installing them 
+out of the already activated repositories:
+
+`yum install perl-libwww-perl`
+`yum install perl-JSON`
+`yum install perl-URI`
+`yum install perl-YAML`
+`yum install perl-Text-Iconv`
+
+additional to these, you need to fetch some Perl module RPMs from the epel directory and install
+them. The following URLs are the newest available packages as of 2014-04-14:
 
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Crypt-RC4-2.02-1.el6.noarch.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Digest-Perl-MD5-1.8-2.el6.noarch.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Jcode-2.07-1.el6.noarch.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-OLE-Storage_Lite-0.19-2.el6.noarch.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-ParseExcel-0.5900-1.el6.x86_64.rpm
+http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Unicode-Map-0.112-12.el6.x86_64.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-WriteExcel-2.37-1.el6.noarch.rpm
 http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Spreadsheet-XLSX-0.13-3.el6.noarch.rpm
-http://dl.fedoraproject.org/pub/epel/6/x86_64/perl-Unicode-Map-0.112-12.el6.x86_64.rpm
 
-
-additionally, install the following one using yum:
-
-yum install perl-Text-Iconv
 
 
 Mac OSX
