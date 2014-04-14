@@ -45,13 +45,29 @@ our $config = LoadFile($o_config_file);
 
 ### FUNCTIONS
 sub print_usage {
-    print "no usage information yet\n";
+    print "Usage: $0 [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
+    print "  [-c|--config <api-scripts.conf.yml>]\n";
+    print "  [-x|--excelfile <Excel-File.xml>]\n\n";
 }
 
 sub print_help {
   print_usage();
   print <<"EOT";
-  no help text yet
+- h, --help   
+	print this help messages
+-d, --debug
+	print very detailed debugging information on the screen while executing program
+-s, --save
+	Save all changes to op5 Monitor API after executing the program
+-S, --saveonly
+	ONLY save changes. Intented to be used to save changes issued by the script
+	when executing it without the "--save" parameter
+-c <config_file>, --config <config_file>
+	specify the configuration file to use. Default is to search for one in the path
+	/opt/api-scripts/api-scripts.config.yml
+-x <Excel-File>, --excelfile <Excel-File>
+	specify the Excel-File needed to feed this program with informations about the hosts
+	to add to op5 Monitor.
 EOT
   exit 0;
 }
