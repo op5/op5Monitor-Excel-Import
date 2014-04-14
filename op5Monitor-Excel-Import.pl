@@ -1,6 +1,17 @@
 #!/usr/bin/perl
 
-## VERSION 0.2.0 
+## VERSION 0.3.0 
+
+# This program is a bulk-import script that reads an Excel file as an input
+# and each host from this Excel list into op5 Monitor through the HTTP APIs
+# of the op5 Monitor product.
+# You can find more information on this program in the README file delivered
+# with this distribution
+
+##### Changelog
+# 2014-04-11 v0.1.0 Christian Anton initial version
+# 2014-04-14 v0.2.0 Christian Anton added Windows disks monitoring support
+# 2014-04-14 v0.3.0 Christian Anton added README and help functions
 
 
 use strict;
@@ -35,13 +46,29 @@ our $config = LoadFile($o_config_file);
 
 ### FUNCTIONS
 sub print_usage {
-    print "no usage information yet\n";
+    print "Usage: $0 [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
+    print "  [-c|--config <api-scripts.conf.yml>]\n";
+    print "  [-x|--excelfile <Excel-File.xml>]\n\n";
 }
 
 sub print_help {
   print_usage();
   print <<"EOT";
-  no help text yet
+- h, --help   
+	print this help messages
+-d, --debug
+	print very detailed debugging information on the screen while executing program
+-s, --save
+	Save all changes to op5 Monitor API after executing the program
+-S, --saveonly
+	ONLY save changes. Intented to be used to save changes issued by the script
+	when executing it without the "--save" parameter
+-c <config_file>, --config <config_file>
+	specify the configuration file to use. Default is to search for one in the path
+	/opt/api-scripts/api-scripts.config.yml
+-x <Excel-File>, --excelfile <Excel-File>
+	specify the Excel-File needed to feed this program with informations about the hosts
+	to add to op5 Monitor.
 EOT
   exit 0;
 }
@@ -49,12 +76,12 @@ EOT
 sub check_options {
   Getopt::Long::Configure("bundling");
   GetOptions(
-    'h'   => \$o_help,    'help'    => \$o_help,
-    's'   => \$o_save,  'save'  => \$o_save,
-    'S'   => \$o_saveonly, 'saveonly' => \$o_saveonly,
-    'd'   => \$o_debug,   'debug' => \$o_debug,
-    'c:s' => \$o_config_file, 'config:s' => \$o_config_file,
-    'x:s' => \$o_excel_file,  'excelfile:s' => \$o_excel_file,
+    'h'   => \$o_help,					'help'			=> \$o_help,
+    's'   => \$o_save,					'save'  		=> \$o_save,
+    'S'   => \$o_saveonly,				'saveonly' 		=> \$o_saveonly,
+    'd'   => \$o_debug,					'debug' 		=> \$o_debug,
+    'c:s' => \$o_config_file,			'config:s' 		=> \$o_config_file,
+    'x:s' => \$o_excel_file,			'excelfile:s' 	=> \$o_excel_file,
     'p:i' => \$o_periodically_save
   );
 
