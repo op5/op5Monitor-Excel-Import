@@ -54,7 +54,7 @@ sub print_usage {
 sub print_help {
   print_usage();
   print <<"EOT";
-- h, --help   
+-h, --help   
 	print this help messages
 -d, --debug
 	print very detailed debugging information on the screen while executing program
