@@ -463,6 +463,10 @@ sub op5api_add_windows_disk_drive_service {
 	my $host = shift;
 	my $driveletter = shift;
 
+	# make sure no strange characters are contained in host name and drive letter variable strings
+	chomp $host;
+	chomp $driveletter;
+
 	my $service_description = $config->{excel_import}->{windows_disk_checks}->{service_description};
 	$service_description =~ s/%s/$driveletter/g;
 
@@ -553,6 +557,7 @@ sub get_existing_windows_disks_via_nrpe {
 	$nrpe_output =~ s/\\:.*$//;
 
 	my @return_drives = split(/#/, $nrpe_output);
+	chomp @return_drives;
 
 	$return->{drives} = \@return_drives;
 	return $return;
