@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION 0.3.1 
+use constant VERSION => '0.3.1';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -41,6 +41,7 @@ our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
 our $o_periodically_save = 20;
 our $o_saveonly;
+our $o_version;
 
 check_options();
 our $config = LoadFile($o_config_file);
@@ -48,7 +49,7 @@ our $config = LoadFile($o_config_file);
 
 ### FUNCTIONS
 sub print_usage {
-    print "Usage: $0 [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
+    print "Usage: $0 [-V|--version] [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
     print "  [-c|--config <api-scripts.conf.yml>]\n";
     print "  [-x|--excelfile <Excel-File.xml>]\n\n";
 }
@@ -71,6 +72,8 @@ sub print_help {
 -x <Excel-File>, --excelfile <Excel-File>
 	specify the Excel-File needed to feed this program with informations about the hosts
 	to add to op5 Monitor.
+-V, --version
+	print the version of this tool
 EOT
   exit 0;
 }
@@ -84,10 +87,16 @@ sub check_options {
     'd'   => \$o_debug,					'debug' 		=> \$o_debug,
     'c:s' => \$o_config_file,			'config:s' 		=> \$o_config_file,
     'x:s' => \$o_excel_file,			'excelfile:s' 	=> \$o_excel_file,
-    'p:i' => \$o_periodically_save
+    'p:i' => \$o_periodically_save,
+    'V'	  => \$o_version,               'version'       => \$o_version
   );
 
   if ($o_help) { print_help; }
+
+  if ($o_version) {
+  	print VERSION, "\n";
+  	exit;
+  }
 
 }
 
