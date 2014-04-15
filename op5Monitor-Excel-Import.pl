@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-## VERSION 0.3.0 
+## VERSION 0.3.1 
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -12,6 +12,8 @@
 # 2014-04-11 v0.1.0 Christian Anton initial version
 # 2014-04-14 v0.2.0 Christian Anton added Windows disks monitoring support
 # 2014-04-14 v0.3.0 Christian Anton added README and help functions
+# 2014-04-15 v0.3.1 Christian Anton HOTFIX: chomps for Drive letters to prevent the
+#                                   auto-created service checks to contain newlines
 
 
 use strict;
@@ -54,7 +56,7 @@ sub print_usage {
 sub print_help {
   print_usage();
   print <<"EOT";
-- h, --help   
+-h, --help   
 	print this help messages
 -d, --debug
 	print very detailed debugging information on the screen while executing program
@@ -463,6 +465,10 @@ sub op5api_add_windows_disk_drive_service {
 	my $host = shift;
 	my $driveletter = shift;
 
+	# make sure no strange characters are contained in host name and drive letter variable strings
+	chomp $host;
+	chomp $driveletter;
+
 	my $service_description = $config->{excel_import}->{windows_disk_checks}->{service_description};
 	$service_description =~ s/%s/$driveletter/g;
 
@@ -553,6 +559,7 @@ sub get_existing_windows_disks_via_nrpe {
 	$nrpe_output =~ s/\\:.*$//;
 
 	my @return_drives = split(/#/, $nrpe_output);
+	chomp @return_drives;
 
 	$return->{drives} = \@return_drives;
 	return $return;
