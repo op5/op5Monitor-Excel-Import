@@ -24,6 +24,7 @@ install -d %{buildroot}/opt/api-scripts/inc
 install -m 755 op5Monitor-Excel-Import.pl %{buildroot}/opt/api-scripts/op5Monitor-Excel-Import.pl
 install -m 644 README.md %{buildroot}/opt/api-scripts/README.md
 install -m 644 LICENSE %{buildroot}/opt/api-scripts/LICENSE
+install -m 644 DEPENDENCIES %{buildroot}/opt/api-scripts/DEPENDENCIES
 install -m 644 Hosts-Example.xlsx %{buildroot}/opt/api-scripts/Hosts-Example.xlsx
 install -m 644 inc/op5Monitor_API.pm %{buildroot}/opt/api-scripts/inc/op5Monitor_API.pm
 install -m 644 op5Monitor-Excel-Import_README.pdf %{buildroot}/opt/api-scripts/op5Monitor-Excel-Import_README.pdf
@@ -36,6 +37,7 @@ rm -rf %{buildroot}
 /opt/api-scripts/op5Monitor-Excel-Import.pl
 /opt/api-scripts/README.md
 /opt/api-scripts/LICENSE
+/opt/api-scripts/DEPENDENCIES
 /opt/api-scripts/Hosts-Example.xlsx
 /opt/api-scripts/inc/op5Monitor_API.pm
 /opt/api-scripts/op5Monitor-Excel-Import_README.pdf
