@@ -1,3 +1,4 @@
 api-scripts.config.test.yml
 ~*
 *-Test.xlsx
+tmp/

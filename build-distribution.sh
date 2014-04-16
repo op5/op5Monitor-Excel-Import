@@ -27,6 +27,7 @@ tar czf distribution/$BASENAME-$VERSION.tar.gz \
   $BASENAME-$VERSION/$BASENAME.pl \
   $BASENAME-$VERSION/README.md \
   $BASENAME-$VERSION/LICENSE \
+  $BASENAME-$VERSION/DEPENDENCIES \
   $BASENAME-$VERSION/Hosts-Example.xlsx \
   $BASENAME-$VERSION/api-scripts.config.yml \
   $BASENAME-$VERSION/inc \

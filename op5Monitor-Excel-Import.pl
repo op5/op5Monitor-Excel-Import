@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.3.2';
+use constant VERSION => '0.3.3';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -14,6 +14,8 @@ use constant VERSION => '0.3.2';
 # 2014-04-14 v0.3.0 Christian Anton added README and help functions
 # 2014-04-15 v0.3.1 Christian Anton HOTFIX: chomps for Drive letters to prevent the
 #                                   auto-created service checks to contain newlines
+# 2014-04-16 v0.3.2 Christian Anton now supporting rpm installation
+# 2014-04-16 v0.3.3 Christian Anton adding DEPENDENCIES file to the distribution tarball
 
 
 use strict;
