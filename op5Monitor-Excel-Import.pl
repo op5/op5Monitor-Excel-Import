@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.3.1';
+use constant VERSION => '0.3.2';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
