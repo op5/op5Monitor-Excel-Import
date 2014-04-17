@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.3.3';
+use constant VERSION => '0.3.4';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -16,6 +16,8 @@ use constant VERSION => '0.3.3';
 #                                   auto-created service checks to contain newlines
 # 2014-04-16 v0.3.2 Christian Anton now supporting rpm installation
 # 2014-04-16 v0.3.3 Christian Anton adding DEPENDENCIES file to the distribution tarball
+# 2014-04-17 v0.3.4 Christian Anton FIX: faulty regex caused disk detection only to detect the
+#                                   first and the last disk drives
 
 
 use strict;
@@ -566,8 +568,8 @@ sub get_existing_windows_disks_via_nrpe {
 
 	my $nrpe_output = $nrpe_return->{output};
 	$nrpe_output =~ s/^[A-Z]+: //;
-	$nrpe_output =~ s/\\:.*, /#/;
-	$nrpe_output =~ s/\\:.*$//;
+	$nrpe_output =~ s/\\:[^,]+, /#/g;
+	$nrpe_output =~ s/\\:[^:]+$//;
 
 	my @return_drives = split(/#/, $nrpe_output);
 	chomp @return_drives;
