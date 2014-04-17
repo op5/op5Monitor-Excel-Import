@@ -566,8 +566,8 @@ sub get_existing_windows_disks_via_nrpe {
 
 	my $nrpe_output = $nrpe_return->{output};
 	$nrpe_output =~ s/^[A-Z]+: //;
-	$nrpe_output =~ s/\\:.*, /#/;
-	$nrpe_output =~ s/\\:.*$//;
+	$nrpe_output =~ s/\\:[^,]+, /#/g;
+	$nrpe_output =~ s/\\:[^:]+$//;
 
 	my @return_drives = split(/#/, $nrpe_output);
 	chomp @return_drives;
