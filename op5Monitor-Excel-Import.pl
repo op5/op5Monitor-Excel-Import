@@ -336,13 +336,37 @@ sub create_host_object {
 	}
 
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
-	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+	# ...but first check if the host already exists
 
-	if ($res->{code} == 201) {
-		return (1, "success - " . $hostdata->{host_name});
+	if (op5api_host_exists($hostdata->{host_name}) ) {
+
+		if ($o_overwrite) {
+
+			my $url = op5api_get_url_for_host($hostdata->{host_name});
+			my $res = patch_op5_api_url( $url, (encode_json( $hostdata )) );
+
+			if ($res->{code} == 201) {
+				return (1, "host overwritten, success - " . $hostdata->{host_name});
+			} else {
+				my $msg = decode_json($res->{content});
+				return (0, "host \"" . $hostdata->{host_name} . "\"not overwritten, API return code " . $res->{code} . " - " . $msg->{full_error});
+			}
+
+		} else {
+			return (0, "host \"" . $hostdata->{host_name} . "\" not created, host already exists");
+		}
+
 	} else {
-		my $msg = decode_json($res->{content});
-		return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
+
+		my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+
+		if ($res->{code} == 201) {
+			return (1, "success - " . $hostdata->{host_name});
+		} else {
+			my $msg = decode_json($res->{content});
+			return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
+		}
+
 	}
 
 }
