@@ -44,6 +44,7 @@ our $o_debug;
 our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
 our $o_periodically_save = 20;
+our $o_overwrite;
 our $o_saveonly;
 our $o_version;
 
@@ -54,6 +55,7 @@ our $config = LoadFile($o_config_file);
 ### FUNCTIONS
 sub print_usage {
     print "Usage: $0 [-V|--version] [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
+    print "  [-o|--overwrite-if-exists]\n";
     print "  [-c|--config <api-scripts.conf.yml>]\n";
     print "  [-x|--excelfile <Excel-File.xml>]\n\n";
 }
@@ -76,6 +78,9 @@ sub print_help {
 -x <Excel-File>, --excelfile <Excel-File>
 	specify the Excel-File needed to feed this program with informations about the hosts
 	to add to op5 Monitor.
+-o, --overwrite-if-exists
+	overwrite host and service definitions in case it already exists. The normal behavior
+	of this script is to skip the object in such a case.
 -V, --version
 	print the version of this tool
 EOT
@@ -91,6 +96,7 @@ sub check_options {
     'd'   => \$o_debug,					'debug' 		=> \$o_debug,
     'c:s' => \$o_config_file,			'config:s' 		=> \$o_config_file,
     'x:s' => \$o_excel_file,			'excelfile:s' 	=> \$o_excel_file,
+    'o'   => \$o_overwrite,             'overwrite-if-exists' => \$o_overwrite,
     'p:i' => \$o_periodically_save,
     'V'	  => \$o_version,               'version'       => \$o_version
   );
@@ -330,13 +336,37 @@ sub create_host_object {
 	}
 
 	# how that we know $hostdata is consistent, push it through the API of op5 Monitor
-	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+	# ...but first check if the host already exists
 
-	if ($res->{code} == 201) {
-		return (1, "success - " . $hostdata->{host_name});
+	if (op5api_host_exists($hostdata->{host_name}) ) {
+
+		if ($o_overwrite) {
+
+			my $url = op5api_get_url_for_host($hostdata->{host_name});
+			my $res = patch_op5_api_url( $url, (encode_json( $hostdata )) );
+
+			if ($res->{code} == 200) {
+				return (1, "host overwritten, success - " . $hostdata->{host_name});
+			} else {
+				my $msg = decode_json($res->{content});
+				return (0, "host \"" . $hostdata->{host_name} . "\" not overwritten, API return code " . $res->{code} . " - " . $msg->{full_error});
+			}
+
+		} else {
+			return (0, "host \"" . $hostdata->{host_name} . "\" not created, host already exists");
+		}
+
 	} else {
-		my $msg = decode_json($res->{content});
-		return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
+
+		my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/host', (encode_json( $hostdata )) );
+
+		if ($res->{code} == 201) {
+			return (1, "success - " . $hostdata->{host_name});
+		} else {
+			my $msg = decode_json($res->{content});
+			return (0, "host \"" . $hostdata->{host_name} . "\"not created, API return code " . $res->{code} . " - " . $msg->{full_error});
+		}
+
 	}
 
 }
@@ -353,10 +383,29 @@ sub op5api_clone_one_service {
 	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/service', (encode_json( $svcdata )) );
 
 	if ($res->{code} == 201) {
+
 		return "    success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
+
+	} elsif ($res->{code} == 409) {
+		if ($o_overwrite) {
+
+			my $url = op5api_get_url_for_service($to_host, $svcdescription);
+			my $res = patch_op5_api_url( $url, (encode_json( $svcdata )) );
+			if ($res->{code} == 200) {
+				return "    overwrite success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
+			} else {
+				my $msg = decode_json($res->{content});
+				return "    could not overwrite-clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+			}
+
+		} else {
+			return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", service already exists";
+		}
 	} else {
+
 		my $msg = decode_json($res->{content});
 		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+
 	}
 }
 
@@ -500,6 +549,24 @@ sub op5api_add_windows_disk_drive_service {
 
 	if ($res->{code} == 201) {
 		return "    success - \"" . $service_description . "\" created on host \"" . $host;
+	} elsif ($res->{code} == 409) {
+
+		if ($o_overwrite) {
+
+			my $url = op5api_get_url_for_service($host, $service_description);
+			my $res = patch_op5_api_url( $url, (encode_json( $service )) );
+
+			if ($res->{code} == 200) {
+				return "    overwrite success - \"" . $service_description . "\" created on host \"" . $host;
+			} else {
+				my $msg = decode_json($res->{content});
+				return "    could not overwrite \"" . $service_description . "\" on \"" . $host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+			}
+
+		} else {
+			return "    could not add \"" . $service_description . "\" on \"" . $host . "\", service already exists";
+		}
+
 	} else {
 		my $msg = decode_json($res->{content});
 		return "    could not add \"" . $service_description . "\" on \"" . $host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
