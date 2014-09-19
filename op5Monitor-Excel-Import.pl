@@ -44,6 +44,7 @@ our $o_debug;
 our $o_config_file = '/opt/api-scripts/api-scripts.config.yml';
 our $o_excel_file;
 our $o_periodically_save = 20;
+our $o_overwrite;
 our $o_saveonly;
 our $o_version;
 
@@ -54,6 +55,7 @@ our $config = LoadFile($o_config_file);
 ### FUNCTIONS
 sub print_usage {
     print "Usage: $0 [-V|--version] [-h|--help] [-d|--debug] [-s|--save] [-S|--saveonly]\n";
+    print "  [-o|--overwrite-if-exists]\n";
     print "  [-c|--config <api-scripts.conf.yml>]\n";
     print "  [-x|--excelfile <Excel-File.xml>]\n\n";
 }
@@ -76,6 +78,9 @@ sub print_help {
 -x <Excel-File>, --excelfile <Excel-File>
 	specify the Excel-File needed to feed this program with informations about the hosts
 	to add to op5 Monitor.
+-o, --overwrite-if-exists
+	overwrite host definition in case it already exists. The normal behavior of this script
+	is to skip the host in that case.
 -V, --version
 	print the version of this tool
 EOT
@@ -91,6 +96,7 @@ sub check_options {
     'd'   => \$o_debug,					'debug' 		=> \$o_debug,
     'c:s' => \$o_config_file,			'config:s' 		=> \$o_config_file,
     'x:s' => \$o_excel_file,			'excelfile:s' 	=> \$o_excel_file,
+    'o'   => \$o_overwrite,             'overwrite-if-exists' => \$o_overwrite,
     'p:i' => \$o_periodically_save,
     'V'	  => \$o_version,               'version'       => \$o_version
   );
