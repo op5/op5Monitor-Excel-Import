@@ -345,11 +345,11 @@ sub create_host_object {
 			my $url = op5api_get_url_for_host($hostdata->{host_name});
 			my $res = patch_op5_api_url( $url, (encode_json( $hostdata )) );
 
-			if ($res->{code} == 201) {
+			if ($res->{code} == 200) {
 				return (1, "host overwritten, success - " . $hostdata->{host_name});
 			} else {
 				my $msg = decode_json($res->{content});
-				return (0, "host \"" . $hostdata->{host_name} . "\"not overwritten, API return code " . $res->{code} . " - " . $msg->{full_error});
+				return (0, "host \"" . $hostdata->{host_name} . "\" not overwritten, API return code " . $res->{code} . " - " . $msg->{full_error});
 			}
 
 		} else {
