@@ -1,5 +1,5 @@
 Name: op5Monitor-Excel-Import
-Version: 0.3.4
+Version: 0.3.5
 Release: 1.el6
 Summary: Tool to import hosts from an Excel file as a source.
 Group: Third Party		
