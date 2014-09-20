@@ -33,6 +33,10 @@ Even if the heading is defined for a certain column, you can leave the cell empt
 	specify the Excel-File needed to feed this program with informations about the hosts
 	to add to op5 Monitor.
 
+- `-o`, `--overwrite-existing`
+  with this argument, objects that may already exist in the op5 Monitor configuration
+  will be overwritten instead of skipped. This applies both for hosts and for services.
+
 
 ## Excel file column headers
 
