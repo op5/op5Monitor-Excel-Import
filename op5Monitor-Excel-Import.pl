@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.3.4';
+use constant VERSION => '0.3.5';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -18,6 +18,7 @@ use constant VERSION => '0.3.4';
 # 2014-04-16 v0.3.3 Christian Anton adding DEPENDENCIES file to the distribution tarball
 # 2014-04-17 v0.3.4 Christian Anton FIX: faulty regex caused disk detection only to detect the
 #                                   first and the last disk drives
+# 2014-09-19 v0.3.5 Christian Anton added overwrite mode
 
 
 use strict;
@@ -78,7 +79,7 @@ sub print_help {
 -x <Excel-File>, --excelfile <Excel-File>
 	specify the Excel-File needed to feed this program with informations about the hosts
 	to add to op5 Monitor.
--o, --overwrite-if-exists
+-o, --overwrite-existing
 	overwrite host and service definitions in case it already exists. The normal behavior
 	of this script is to skip the object in such a case.
 -V, --version
