@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.3.5';
+use constant VERSION => '0.4.0';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -19,6 +19,9 @@ use constant VERSION => '0.3.5';
 # 2014-04-17 v0.3.4 Christian Anton FIX: faulty regex caused disk detection only to detect the
 #                                   first and the last disk drives
 # 2014-09-19 v0.3.5 Christian Anton added overwrite mode
+# 2014-12-02 v0.4.0 Christian Anton Proper handling of service dependencies added: now servicedependencies on 
+#                                   services that are to be cloned are rewritten in case that they were
+#                                   referring to another service on the same host
 
 
 use strict;
@@ -372,41 +375,58 @@ sub create_host_object {
 
 }
 
-sub op5api_clone_one_service {
-	my $from_host = shift;
-	my $to_host = shift;
+sub op5api_write_service {
+	my $host = shift;
 	my $svcdescription = shift;
+	my $svcdata = shift;
 
-	# fetch service data structure from from_host
-	my $svcdata = op5api_get_svcdescription_from_host($from_host, $svcdescription);
-	$svcdata->{host_name} = $to_host;
+	my $url = 'https://'.$config->{op5api}->{server}.'/api/config/service';
 
-	my $res = post_op5_api_url( 'https://'.$config->{op5api}->{server}.'/api/config/service', (encode_json( $svcdata )) );
+	my $res = post_op5_api_url($url, (encode_json( $svcdata )) );
 
 	if ($res->{code} == 201) {
-
-		return "    success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
+		return "    success - added \"" . $svcdescription . "\" to host \"" . $host . "\"";
 
 	} elsif ($res->{code} == 409) {
 		if ($o_overwrite) {
 
-			my $url = op5api_get_url_for_service($to_host, $svcdescription);
-			my $res = patch_op5_api_url( $url, (encode_json( $svcdata )) );
+			my $url = op5api_get_url_for_service($host, $svcdescription);
+			my $res = delete_op5_api_url($url);
+
 			if ($res->{code} == 200) {
-				return "    overwrite success - \"" . $svcdescription . "\" cloned from host \"" . $from_host . "\" to \"" . $to_host . "\"";
+				print "    delete success - \"" . $svcdescription . "\" on \"" . $host . "\"\n";
+				op5api_write_service($host, $svcdescription, $svcdata);
 			} else {
-				my $msg = decode_json($res->{content});
-				return "    could not overwrite-clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+				return "    could not delete \"" . $svcdescription . "\" on \"" . $host . "\", error code: " . $res->{content};
 			}
 
 		} else {
-			return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", service already exists";
+			return "    could not add \"" . $svcdescription . "\" to \"" . $host . "\", service already exists";
 		}
 	} else {
-
 		my $msg = decode_json($res->{content});
-		return "    could not clone \"" . $svcdescription . "\" from \"" . $from_host . "\" to \"" . $to_host . "\", error code: " . $res->{code} . " - " . $msg->{full_error};
+		return "    could not add \"" . $svcdescription . "\" to \"" . $host . "\" , error code: " . $res->{code} . " - " . $msg->{full_error};
+	}
+}
 
+sub op5api_write_service_dependency {
+	my $dependent_host = shift;
+	my $dependent_svcdescription = shift;
+	my $dependency = shift;
+
+	my $dependent_service = $dependent_host . ";" . $dependent_svcdescription;
+	$dependency->{dependent_service} = $dependent_service;
+
+	my $url = 'https://'.$config->{op5api}->{server}.'/api/config/servicedependency';
+	my $res = post_op5_api_url($url, (encode_json( $dependency )) );
+
+	if ($res->{code} == 201) {
+
+		return "    success - servicedependency for " . $dependent_service . " depending on " . $dependency->{service} . " successful added";
+
+	} else {
+		my $msg = decode_json($res->{content});
+		return "    could not add dependency for " . $dependent_service . " depending on " . $dependency->{service} . ", error code: " . $res->{code} . " - " . $msg->{full_error};
 	}
 }
 
@@ -514,12 +534,41 @@ sub clone_services {
 			next; 
 		}
 
+		my $temporary_svcdependencies;
+
 		foreach my $svcdescription (@from_host_svcdescriptions) {
 
 			# create the service on the to_host
-			my $output = op5api_clone_one_service($from_host, $to_host, $svcdescription);
+			my $svcdata = op5api_get_svcdescription_from_host($from_host, $svcdescription);
+
+			if ($svcdata->{servicedependencys}) {
+				foreach(@{$svcdata->{servicedependencys}}) {
+					push(@{$temporary_svcdependencies->{$svcdescription}}, $_);
+				}
+				delete $svcdata->{servicedependencys};
+			}
+
+			$svcdata->{host_name} = $to_host;
+			my $output = op5api_write_service($to_host, $svcdescription, $svcdata);
 			print $output , "\n";
 			
+		}
+
+		foreach my $dependent_svcdescription (keys %$temporary_svcdependencies) {
+
+			foreach my $dependency (@{$temporary_svcdependencies->{$dependent_svcdescription}}) {
+
+				# check if the destination of the dependency is the same as the host where the whole
+				# service came from. If yes, change that!
+				my $dependency_svcdescription = $dependency->{service};
+				$dependency_svcdescription =~ s/^[^;]+;//;
+
+				if ($dependency->{service} eq $from_host . ";" . $dependency_svcdescription) {
+					$dependency->{service} = $to_host . ";" . $dependency_svcdescription;
+				}
+				my $output = op5api_write_service_dependency($to_host, $dependent_svcdescription, $dependency);
+				print $output , "\n";
+			}
 		}
 	}
 }
