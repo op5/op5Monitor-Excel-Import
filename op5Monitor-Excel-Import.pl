@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.4.0';
+use constant VERSION => '0.4.1';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -22,6 +22,7 @@ use constant VERSION => '0.4.0';
 # 2014-12-02 v0.4.0 Christian Anton Proper handling of service dependencies added: now servicedependencies on 
 #                                   services that are to be cloned are rewritten in case that they were
 #                                   referring to another service on the same host
+# 2014-12-03 v0.4.1 Christian Anton Improved functionality and documentation of the auto-save feature
 
 
 use strict;
@@ -73,6 +74,12 @@ sub print_help {
 	print very detailed debugging information on the screen while executing program
 -s, --save
 	Save all changes to op5 Monitor API after executing the program
+-p, --periodically_save <number>
+    with this option, the script saves the configuration every <number> amount of hosts
+    being processed. This is good because the API tends to slow down after a certain amount
+    of changes because of the history function. Default value is 20. The autosave does 
+    not happen at all when "--save" is not set. It can be switched off regardless of --save
+    by setting it to the value 0.
 -S, --saveonly
 	ONLY save changes. Intented to be used to save changes issued by the script
 	when executing it without the "--save" parameter
@@ -838,8 +845,10 @@ for my $row ( $row_min+1 .. $row_max ) {
 	}
 
 	# periodically save to not slow down too much
-	if ($written_hosts_counter % $o_periodically_save == 0) {
-		op5_api_check_and_save();
+	if ($o_periodically_save != 0) {
+		if ($written_hosts_counter % $o_periodically_save == 0) {
+			op5_api_check_and_save();
+		}
 	}
 }
 
