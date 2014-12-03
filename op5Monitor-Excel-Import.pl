@@ -73,6 +73,12 @@ sub print_help {
 	print very detailed debugging information on the screen while executing program
 -s, --save
 	Save all changes to op5 Monitor API after executing the program
+-p, --periodically_save <number>
+    with this option, the script saves the configuration every <number> amount of hosts
+    being processed. This is good because the API tends to slow down after a certain amount
+    of changes because of the history function. Default value is 20. The autosave does 
+    not happen at all when "--save" is not set. It can be switched off regardless of --save
+    by setting it to the value 0.
 -S, --saveonly
 	ONLY save changes. Intented to be used to save changes issued by the script
 	when executing it without the "--save" parameter
@@ -838,8 +844,10 @@ for my $row ( $row_min+1 .. $row_max ) {
 	}
 
 	# periodically save to not slow down too much
-	if ($written_hosts_counter % $o_periodically_save == 0) {
-		op5_api_check_and_save();
+	if ($o_periodically_save != 0) {
+		if ($written_hosts_counter % $o_periodically_save == 0) {
+			op5_api_check_and_save();
+		}
 	}
 }
 
