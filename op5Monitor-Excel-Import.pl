@@ -37,6 +37,7 @@ use YAML qw(LoadFile);;
 use Spreadsheet::XLSX;
 use Text::Iconv;
 use File::Basename;
+use Encode;
 
 # own modules
 use lib dirname (__FILE__) . '/inc';
@@ -735,8 +736,8 @@ if ($o_saveonly) {
 }
 
 # all the rest
-my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
-my $workbook = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
+#my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
+my $workbook = Spreadsheet::XLSX -> new ($o_excel_file);
 
 my $worksheet = $workbook->worksheet(0);
 my ( $row_min, $row_max ) = $worksheet->row_range();
@@ -778,7 +779,7 @@ for my $row ( $row_min+1 .. $row_max ) {
 		my $cellcontent;
 
 		if ($cell) {
-			$cellcontent = $cell->unformatted();
+			$cellcontent = decode_utf8 $cell->unformatted();
 			chomp $cellcontent;
 
 			my $current_column = $headers->[$current_col_index];
