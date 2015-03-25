@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.4.1';
+use constant VERSION => '0.4.2';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -23,6 +23,7 @@ use constant VERSION => '0.4.1';
 #                                   services that are to be cloned are rewritten in case that they were
 #                                   referring to another service on the same host
 # 2014-12-03 v0.4.1 Christian Anton Improved functionality and documentation of the auto-save feature
+# 2015-03-25 v0.4.2 Christian Anton Fixed an issue reading UTF8 characters from Excel using Encode()
 
 
 use strict;
@@ -37,6 +38,7 @@ use YAML qw(LoadFile);;
 use Spreadsheet::XLSX;
 use Text::Iconv;
 use File::Basename;
+use Encode;
 
 # own modules
 use lib dirname (__FILE__) . '/inc';
@@ -735,8 +737,8 @@ if ($o_saveonly) {
 }
 
 # all the rest
-my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
-my $workbook = Spreadsheet::XLSX -> new ($o_excel_file, $converter);
+#my $converter = Text::Iconv -> new ("utf-8", "windows-1251");
+my $workbook = Spreadsheet::XLSX -> new ($o_excel_file);
 
 my $worksheet = $workbook->worksheet(0);
 my ( $row_min, $row_max ) = $worksheet->row_range();
@@ -778,7 +780,7 @@ for my $row ( $row_min+1 .. $row_max ) {
 		my $cellcontent;
 
 		if ($cell) {
-			$cellcontent = $cell->unformatted();
+			$cellcontent = decode_utf8 $cell->unformatted();
 			chomp $cellcontent;
 
 			my $current_column = $headers->[$current_col_index];
