@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use constant VERSION => '0.4.1';
+use constant VERSION => '0.4.2';
 
 # This program is a bulk-import script that reads an Excel file as an input
 # and each host from this Excel list into op5 Monitor through the HTTP APIs
@@ -23,6 +23,7 @@ use constant VERSION => '0.4.1';
 #                                   services that are to be cloned are rewritten in case that they were
 #                                   referring to another service on the same host
 # 2014-12-03 v0.4.1 Christian Anton Improved functionality and documentation of the auto-save feature
+# 2015-03-25 v0.4.2 Christian Anton Fixed an issue reading UTF8 characters from Excel using Encode()
 
 
 use strict;
